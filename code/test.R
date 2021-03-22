@@ -1,11 +1,14 @@
 # Technical test
 library("mlr3")
-source("Automl.R")
-source("make_mlr3_learner.R")
+library(R6)
 library(stringi)
+library(ps)
+source("./code/Automl.R")
+source("./code/make_mlr3_learner.R")
+
 
 set.seed(1)
-dataset_files = list.files("../../datasets", "*.csv", full.names = TRUE)
+dataset_files = list.files("datasets", "*.csv", full.names = TRUE)
 all_datasets = lapply(dataset_files, function(x) {
   data = data.table::fread(x, stringsAsFactors = TRUE)
   data[, Delay := as.factor(Delay)]
