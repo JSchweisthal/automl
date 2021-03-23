@@ -1,4 +1,5 @@
 # Abstract base class
+library(R6)
 Automl = R6Class(
   "Automl",
   public = list(
