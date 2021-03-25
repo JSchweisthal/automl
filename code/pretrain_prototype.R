@@ -4,12 +4,13 @@ library(mlr3tuning)
 library(mlr3filters)
 library(paradox)
 library(mlr3tuning)
+library(fastDummies)
 # requireNamespace("lgr")
 
 # specify methods and learners (hyper params to be optimized should be specified in loop)
 measure_name = "classif.acc"
 tuner_name = "random_search"
-learner_names = c("classif.rpart", "classif.ranger")
+learner_names = c("classif.rpart", "classif.ranger", "classif.svm", "classif.xgboost", "classif.kknn")
 # specify task
 task <- TaskClassif$new(
   id = "flight", backend = data,
@@ -30,21 +31,44 @@ format = '.csv'
 for(dataset in datasets){
   data = data.table::fread(paste(path, dataset, format, sep = ""), stringsAsFactors = TRUE)
   data[, Delay := as.factor(Delay)]
+  data = dummy_cols(data, remove_selected_columns = TRUE)
   # iterate over learners
   for(learner_name in learner_names){
     # assign wanted hyperparams per dataset  
     if(learner_name == "classif.rpart"){
+      kernel = NULL
       params = list(
         ParamDbl$new("cp", lower = 0.001, upper = 0.1),
         ParamInt$new("minsplit", lower = 1, upper = 100)
       )
-    } else if(learner_name == "classif.ranger"){
+    } 
+    if(learner_name == "classif.ranger"){
+      kernel = NULL
       params = list(
         ParamInt$new("num.trees", lower = 3, upper = 30),
         ParamInt$new("min.node.size", lower = 1, upper = 10)
       )
     }
+    if(learner_name == "classif.svm"){
+      kernel = "radial"
+      params = list(
+        ParamDbl$new("gamma", lower = 1, upper = 10),
+        ParamDbl$new("cost", lower = 0.1, upper = 10)
+      )
+    }
+    if(learner_name == "classif.xgboost"){
+      params = list(
+        ParamInt$new("max_depth", lower = 1, upper = 10),
+        ParamDbl$new("eta", lower = 0.1, upper = 0.5)
+      )
+    }
+    if(learner_name == "classif.kknn"){
+      params = list(
+        ParamInt$new("k", lower = 3, upper = trunc(nrow(data)/200))
+      )
+    }
     # assign learner
+    # for svm: learner <- lrn(learner_name, kernel = kernel, predict_type = "prob")
     learner <- lrn(learner_name, predict_type = "prob")
     # make parameter set & terminator
     tune_ps <- ParamSet$new(params)
