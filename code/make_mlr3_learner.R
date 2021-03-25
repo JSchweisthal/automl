@@ -1,4 +1,5 @@
 library(mlr3)
+library(paradox)
 #' @param automl: Automl `R6ClassGenerator` - not the constructed object!
 #' @example
 #'   lrn = make_mlr3_learner(Automl)
@@ -19,7 +20,7 @@ make_mlr3_learner = function(automl, ...) {
       automl = automl,
       
       initialize = function() {
-        ps = ps()
+        ps = paradox::ps()
         ps$values = list()
         super$initialize(
           id = paste0("classif.", class(automl)[1]),
