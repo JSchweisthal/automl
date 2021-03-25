@@ -10,9 +10,9 @@ library(fastDummies)
 # specify methods and learners (hyper params to be optimized should be specified in loop)
 measure_name = "classif.acc"
 tuner_name = "random_search"
-learner_names = c("classif.rpart", "classif.ranger", 
+learner_names = c("classif.rpart", "classif.ranger"#, 
   #"classif.svm", 
-  "classif.xgboost"
+ # "classif.xgboost"
   #, "classif.kknn"
   )
 measure <- msr(measure_name)

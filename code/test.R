@@ -23,12 +23,14 @@ stopifnot(all(preds %in% c(0,1)))
 
 # Test if it works with mlr3
 all_tasks = mapply(TaskClassif$new, id = names(all_datasets), backend = all_datasets, target = "Delay")
-lrn = make_mlr3_learner(AutomlCustom)
-lrn$train(all_tasks[[1]], row_ids = 1:100)
-preds = lrn$predict(all_tasks[[2]])$response
+learner = make_mlr3_learner(AutomlCustom)
+# learner$encapsulate = c(predict = "evaluate")
+# learner$fallback = lrn("classif.featureless")
+learner$train(all_tasks[[1]], row_ids = 1:1000)
+preds = learner$predict(all_tasks[[1]])# $response
 stopifnot(all(preds %in% c(0,1)))
 
-res = resample(all_tasks[[1]], lrn, rsmp("cv", folds = 3))
+res = resample(all_tasks[[1]], learner, rsmp("cv", folds = 3))
 stopifnot(is.numeric(res$aggregate()))
 
 
