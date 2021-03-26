@@ -9,8 +9,12 @@ library(mlr3pipelines)
 # requireNamespace("lgr")
 
 # data
-data_test = data.table::fread(paste(path, dataset, format, sep = ""), stringsAsFactors = TRUE)
-data_test[, Delay := as.factor(Delay)]
+# specify datasets on which should be trained on
+# path = 'datasets/'
+# datasets = c('arrivals_ATL') # for demonstration purposes: just one dataset, later all
+# format = '.csv'
+# data_test = data.table::fread(paste(path, dataset, format, sep = ""), stringsAsFactors = TRUE)
+# data_test[, Delay := as.factor(Delay)]
 
 # specify methods and learners (hyper params to be optimized should be specified in loop)
 train_helper = function(data){
@@ -22,7 +26,8 @@ train_helper = function(data){
   measure_name = "classif.acc"
   # tuner
   tuner_name = "random_search"
-  learner_names = c("classif.rpart", "classif.ranger"#,
+  learner_names = c("classif.rpart" , 
+                    "classif.ranger"#,
                     #"classif.svm",
                     #"classif.xgboost"
                     #, "classif.kknn"
@@ -31,13 +36,8 @@ train_helper = function(data){
   # resampling method
   resampling <- rsmp("cv", folds = 5)
   # initializing empty dataframe for storing best hyperparamter constellation and accuracy
-  performance = data.frame(matrix(ncol = 4, nrow = 0))
-  colnames(performance) = c("dataset", "learner", "measure", "parameters")
-
-  # specify datasets on which should be trained on
-  path = 'datasets/'
-  datasets = c('arrivals_ATL') # for demonstration purposes: just one dataset, later all
-  format = '.csv'
+  performance = data.frame(matrix(ncol = 3, nrow = 0))
+  colnames(performance) = c( "learner", "measure", "parameters")
 
   # if(learner_name %in% c("classif.svm", "classif.xgboost")){
   #   data = cbind(dummy_cols(data[, -"Delay"], remove_selected_columns = TRUE), data[, "Delay"])
@@ -108,7 +108,7 @@ train_helper = function(data){
     )
     at$train(task)
     # save results in data.frame
-    current_result = data.frame(dataset, learner_name, at$tuning_result$classif.acc, I(at$tuning_result$learner_param_vals))
+    current_result = data.frame(learner_name, at$tuning_result$classif.acc, I(at$tuning_result$learner_param_vals))
     names(current_result) = names(performance)
     performance = rbind(performance, current_result)
     # # at$archive # maybe store also full archive (every hp constellation)?
@@ -118,11 +118,28 @@ train_helper = function(data){
   performance = as.data.table(performance)
   # store best learner
   best_learner = performance[measure==max(performance$measure)]
+  best_learner = best_learner[1, ]
+  
 
   learner = lrn(best_learner$learner, predict_type = "prob")
-  # learner$param_set$values =  as.list(at$tuning_result[, c("cp", "minsplit")])
   learner$param_set$values = best_learner$parameters[[1]]
+  
+  # graph =  po("imputemode") %>>% learner # impute missing values
+  # graphlearner = GraphLearner$new(graph)
+  imp_missind = po("missind")
+  imp_num = po("imputehist", param_vals = list(affect_columns = selector_type("numeric")))
+  imp_missind = po("missind", param_vals = list(affect_columns = NULL, which = "all"))
+  
+  imp_fct = po("imputeoor",
+               param_vals = list(affect_columns = selector_type("factor")))
+  graph = po("copy", 2) %>>%
+    gunion(list(imp_missind, imp_num %>>% imp_fct)) %>>%
+    po("featureunion") 
+  learner = GraphLearner$new(graph %>>% po(learner))
+  
+  # learner$param_set$values =  as.list(at$tuning_result[, c("cp", "minsplit")])
   learner$train(task)
+  learner
 }
 
 # open questions:

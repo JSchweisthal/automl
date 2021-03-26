@@ -22,22 +22,25 @@ AutomlCustom = R6Class(
   "AutomlCustom",
   inherit = Automl,
   public = list(
-    # factors_train_data = NULL,
+    levels_train_data = list(),
     
     train = function(data) {
       self$model = train_helper(data)
       
       # tokeep = which(sapply(data[, -"Delay"],is.factor))
       # self$factors_train_data = sapply((data[ , tokeep, with=FALSE]), levels)
-      
+      self$levels_train_data['Airline'] = names(sort(table((data$Airline)),decreasing=TRUE)[1])
+      self$levels_train_data['AirportFrom'] = names(sort(table((data$AirportFrom)),decreasing=TRUE)[1])
       # implementation here!
       invisible(self) # important!
     },
     
     predict = function(newdata) {
       #implementation here!
-      # data = newdata[newdata[, Airline %in% self$factors_train_data$Airline & AirportFrom %in% self$factors_train_data$AirportFrom]]
-      self$model$predict_newdata(data)$response
+      ndata = newdata
+      ndata[!(Airline %in% self$factors_train_data$Airline), Airline := self$levels_train_data['Airline']]
+      ndata[!(AirportFrom %in% self$factors_train_data$AirportFrom), AirportFrom := self$levels_train_data['AirportFrom']]
+      self$model$predict_newdata(ndata)$response # change newdata by data
      # rep(0, times = nrow(newdata))
     }
     
