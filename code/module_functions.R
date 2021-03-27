@@ -6,6 +6,7 @@ library(paradox)
 library(mlr3tuning)
 library(fastDummies)
 library(mlr3pipelines)
+library(data.table)
 # requireNamespace("lgr")
 
 # data
@@ -18,19 +19,18 @@ library(mlr3pipelines)
 
 # specify methods and learners (hyper params to be optimized should be specified in loop)
 train_helper = function(data){
-  # task
-  task <- TaskClassif$new(
-  id = "flight", backend = data,
-  target = "Delay")
   # measure
   measure_name = "classif.acc"
   # tuner
   tuner_name = "random_search"
-  learner_names = c("classif.rpart" , 
+  learner_names = c("classif.rpart", 
                     "classif.ranger"#,
                     #"classif.svm",
+                    #,
                     #"classif.xgboost"
                     #, "classif.kknn"
+                    #, "classif.log_reg"
+                   , "classif.naive_bayes"
   )
   measure <- msr(measure_name)
   # resampling method
@@ -39,16 +39,16 @@ train_helper = function(data){
   performance = data.frame(matrix(ncol = 3, nrow = 0))
   colnames(performance) = c( "learner", "measure", "parameters")
 
-  # if(learner_name %in% c("classif.svm", "classif.xgboost")){
-  #   data = cbind(dummy_cols(data[, -"Delay"], remove_selected_columns = TRUE), data[, "Delay"])
-  # }
-
-  # specify task
-  # task <- TaskClassif$new(
-  #   id = "flight", backend = data,
-  #   target = "Delay")
-  # iterate over learners
   for(learner_name in learner_names){
+    # change data for xgboost
+    data_task = copy(data)
+    if(learner_name %in% c("classif.svm", "classif.xgboost")){
+      data_task = cbind(dummy_cols(data[, -"Delay"], remove_selected_columns = TRUE), data[, "Delay"])
+    }
+    # task
+    task <- TaskClassif$new(
+      id = "flight", backend = data_task,
+      target = "Delay")
     # assign wanted hyperparams per dataset
     if(learner_name == "classif.rpart"){
       params = list(
@@ -77,7 +77,7 @@ train_helper = function(data){
     }
     if(learner_name == "classif.kknn"){
       params = list(
-        ParamInt$new("k", lower = 3, upper = trunc(nrow(data)/200))
+        ParamInt$new("k", lower = 3, upper = 10)
       )
     }
     # imputing missing values &
@@ -86,7 +86,9 @@ train_helper = function(data){
     # if(learner_name == "classif.svm"){
     #   graph = po("imputeoor") %>>% lrn(learner_name, kernel = kernel, type='C-classification', predict_type = "prob")
     # }
+   
     learner = lrn(learner_name, predict_type = "prob")
+    
     
     # graph = po("imputelearner")  %>>% lrn(learner_name, predict_type = "prob") # impute missing values
     # learner = GraphLearner$new(graph)
@@ -94,25 +96,35 @@ train_helper = function(data){
     
    
     # make parameter set & terminator
-    tune_ps <- ParamSet$new(params)
-    terminator <- trm("evals", n_evals = 5)
-    # choose random search - why not grid search?
-    tuner <- tnr(tuner_name)
-    at <- AutoTuner$new(
-      learner = learner,
-      resampling = resampling,
-      measure = measure,
-      search_space = tune_ps,
-      terminator = terminator,
-      tuner = tuner
-    )
-    at$train(task)
-    # save results in data.frame
-    current_result = data.frame(learner_name, at$tuning_result$classif.acc, I(at$tuning_result$learner_param_vals))
-    names(current_result) = names(performance)
-    performance = rbind(performance, current_result)
+    if(!(learner_name %in% c("classif.log_reg", "classif.naive_bayes"))){
+      tune_ps <- ParamSet$new(params)
+      terminator <- trm("evals", n_evals = 5)
+      # choose random search - why not grid search?
+      tuner <- tnr(tuner_name)
+      at <- AutoTuner$new(
+        learner = learner,
+        resampling = resampling,
+        measure = measure,
+        search_space = tune_ps,
+        terminator = terminator,
+        tuner = tuner
+      )
+      at$train(task)
+      # save results in data.frame
+      current_result = data.frame(learner_name, at$tuning_result$classif.acc, I(at$tuning_result$learner_param_vals))
+      names(current_result) = names(performance)
+      performance = rbind(performance, current_result)
+    }
+    else{
+      learner$train(task)
+      current_result = data.frame(learner_name, learner$predict(task)$score(measure), list(params=""))
+      names(current_result) = names(performance)
+      performance = rbind(performance, current_result)
+    }
+      
     # # at$archive # maybe store also full archive (every hp constellation)?
   }
+  
 
   # data.frame to data.table for easier querying
   performance = as.data.table(performance)
@@ -122,22 +134,31 @@ train_helper = function(data){
   
 
   learner = lrn(best_learner$learner, predict_type = "prob")
-  learner$param_set$values = best_learner$parameters[[1]]
+  if(!(best_learner$learner %in% c("classif.log_reg", "classif.naive_bayes"))){
+    learner$param_set$values = best_learner$parameters[[1]]
+  }
   
-  # graph =  po("imputemode") %>>% learner # impute missing values
-  # graphlearner = GraphLearner$new(graph)
-  imp_missind = po("missind")
-  imp_num = po("imputehist", param_vals = list(affect_columns = selector_type("numeric")))
-  imp_missind = po("missind", param_vals = list(affect_columns = NULL, which = "all"))
+  # imp_missind = po("missind")
+  # imp_num = po("imputehist", param_vals = list(affect_columns = selector_type("numeric")))
+  # imp_missind = po("missind", param_vals = list(affect_columns = NULL, which = "all"))
+  # 
+  # imp_fct = po("imputeoor",
+  #              param_vals = list(affect_columns = selector_type("factor")))
+  # graph = po("copy", 2) %>>%
+  #   gunion(list(imp_missind, imp_num %>>% imp_fct)) %>>%
+  #   po("featureunion")
   
-  imp_fct = po("imputeoor",
-               param_vals = list(affect_columns = selector_type("factor")))
-  graph = po("copy", 2) %>>%
-    gunion(list(imp_missind, imp_num %>>% imp_fct)) %>>%
-    po("featureunion") 
-  learner = GraphLearner$new(graph %>>% po(learner))
+  impgraph = list(
+    po("imputesample"),
+    po("missind")
+  ) %>>% po("featureunion")
   
-  # learner$param_set$values =  as.list(at$tuning_result[, c("cp", "minsplit")])
+  # learner = GraphLearner$new(graph %>>% po(learner))
+  learner = GraphLearner$new( #impgraph %>>% 
+            po("fixfactors") %>>% 
+            po("encode", method = "treatment",
+            affect_columns = selector_type("factor")) %>>%  
+            po(learner))
   learner$train(task)
   learner
 }
@@ -159,3 +180,6 @@ train_helper = function(data){
 # test_train$param_set
 # test_train$importance()
 # test_train$predict(task)
+
+# library(mlrintermbo)
+# tnr("intermbo")
