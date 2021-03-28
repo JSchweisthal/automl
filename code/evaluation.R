@@ -30,7 +30,7 @@ rf_cv_measure = list()
 
 i = 1
 
-for(task in all_tasks[1:3]){
+for(task in all_tasks[11:20]){
   result = resample(task = task, learner = learner, resampling = resampling)
   cv_measure[task$format()] = result$aggregate(measure)
   # cv_measures[task$format()] = result$score(measure)$classif.acc
@@ -42,14 +42,31 @@ for(task in all_tasks[1:3]){
   result_rf = resample(task = task, learner = untuned_rf, resampling = resampling)
   rf_cv_measure[task$format()] = result_rf$aggregate(measure)
   
-  cat(as.character(i), "/", as.character(length(all_tasks[1:2])), " Datasets CV finished.", sep = "")
+  cat(as.character(i), "/", as.character(length(all_tasks)), " Datasets CV finished.", sep = "")
+  print(i)
   i = i+1
 }
-
+# creating a data.table summerising the evaluation results
 df_eval = data.table(dataset = names(cv_models), acc_automl = unlist(cv_measure), acc_untunedrf = unlist(rf_cv_measure), learner = unlist(cv_models))
-df_eval$learner = sapply(1:nrow(df_eval), function(x) strsplit(df_eval$learner, split=".", fixed = T)[[x]][4])
+df_eval$learner = sapply(1:nrow(df_eval), function(x) strsplit(df_eval$learner, split=".", fixed = T)[[x]][5])
 df_eval$learner = sapply(1:nrow(df_eval), function(x) strsplit(df_eval$learner, split=">", fixed = T)[[x]][1])
-
-ggplot(df_eval, aes(x=acc_untunedrf, y=acc_automl, col=learner)) +
+# mean and standard deviation of the accouracy of the best learners over the dataframes
+c(mean(df_eval$acc_automl), sqrt(var(df_eval$acc_automl)))
+# how often are learners the best learners?
+table(df_eval$learner)
+# visualizing the accuracy of untuned ranger and automl learner
+ggplot(df_eval, aes(x=acc_untunedrf, y=acc_automl, col=learner)) + theme_bw() +
   geom_point() +
-  geom_abline(slope=1, intercept=0)
+  geom_abline(slope=1, intercept=0) +
+  labs(title = "Generalized estimation accuracy") +
+  xlab("Untuned random forest") +
+  ylab("Learner of AutoML system")
+
+# saving the evaluations
+save(file = "./results/cv_measure.RData", cv_measure)
+save(file = "./results/cv_models.RData", cv_models)
+save(rf_cv_measure, file ="./results/rf_cv_measure.RData")
+save(df_eval, file = "./results/df_eval.RData")
+write.csv(df_eval, "./results/df_eval.csv")
+
+
