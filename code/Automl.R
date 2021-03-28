@@ -22,15 +22,16 @@ AutomlCustom = R6Class(
   "AutomlCustom",
   inherit = Automl,
   public = list(
-    levels_train_data = list(),
+   # factors_train_data = list(),
+   # mode_levels_train_data = list(),
     
     train = function(data) {
       self$model = train_helper(data)
       
-      # tokeep = which(sapply(data[, -"Delay"],is.factor))
+     # tokeep = which(sapply(data[, -"Delay"],is.factor))
       # self$factors_train_data = sapply((data[ , tokeep, with=FALSE]), levels)
-      self$levels_train_data['Airline'] = names(sort(table((data$Airline)),decreasing=TRUE)[1])
-      self$levels_train_data['AirportFrom'] = names(sort(table((data$AirportFrom)),decreasing=TRUE)[1])
+      # self$mode_levels_train_data['Airline'] = names(sort(table((data$Airline)),decreasing=TRUE)[1])
+     #  self$mode_levels_train_data['AirportFrom'] = names(sort(table((data$AirportFrom)),decreasing=TRUE)[1])
       # implementation here!
       invisible(self) # important!
     },
@@ -38,8 +39,13 @@ AutomlCustom = R6Class(
     predict = function(newdata) {
       #implementation here!
       ndata = newdata
-      ndata[!(Airline %in% self$factors_train_data$Airline), Airline := self$levels_train_data['Airline']]
-      ndata[!(AirportFrom %in% self$factors_train_data$AirportFrom), AirportFrom := self$levels_train_data['AirportFrom']]
+      # ndata[!(Airline %in% self$factors_train_data$Airline), Airline := self$mode_levels_train_data['Airline']]
+      # ndata[!(AirportFrom %in% self$factors_train_data$AirportFrom), AirportFrom := self$mode_levels_train_data['AirportFrom']]
+      
+      # if(grepl(pattern = "classif.svm|classif.xgboost", self$model$format())){
+      #   ndata = dummy_cols(ndata, remove_selected_columns = TRUE)
+      # }
+      
       self$model$predict_newdata(ndata)$response # change newdata by data
      # rep(0, times = nrow(newdata))
     }
