@@ -18,18 +18,19 @@ learner = make_mlr3_learner(AutomlCustom)
 # preds = learner$predict(all_tasks[[3]])
 
 resampling = rsmp("cv", folds = 3)
-measures = msr("classif.acc")
+measure = msr("classif.acc")
 cv_measure = list()
-cv_measures = list()
+#cv_measures = list()
 cv_models = list()
 i = 1
 
-for(task in all_tasks[1:2]){
+for(task in all_tasks){
   result = resample(task = task, learner = learner, resampling = resampling)
   cv_measure[task$format()] = result$aggregate(measure)
-  cv_measures[task$format()] = result$score(measure)$classif.acc
-  cv_models[task$format()] = result$learners
+  # cv_measures[task$format()] = result$score(measure)$classif.acc
+  # cv_models[task$format()] = result$learner$automl$model$format()
+  learner$train(task)
+  cv_models[task$format()] = learner$automl$model$format()
   cat(as.character(i), "/", as.character(length(all_tasks[1:2])), " Datasets CV finished.", sep = "")
   i = i+1
-  
 }

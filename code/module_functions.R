@@ -23,14 +23,15 @@ train_helper = function(data){
   measure_name = "classif.acc"
   # tuner
   tuner_name = "random_search"
-  learner_names = c("classif.rpart", 
+  learner_names = c(
+                    "classif.rpart",
                     "classif.ranger"#,
                     #"classif.svm",
-                    #,
-                    #"classif.xgboost"
+                    ,
+                    "classif.xgboost"
                     #, "classif.kknn"
                     #, "classif.log_reg"
-                   , "classif.naive_bayes"
+                  , "classif.naive_bayes"
   )
   measure <- msr(measure_name)
   # resampling method
@@ -42,9 +43,9 @@ train_helper = function(data){
   for(learner_name in learner_names){
     # change data for xgboost
     data_task = copy(data)
-    if(learner_name %in% c("classif.svm", "classif.xgboost")){
-      data_task = cbind(dummy_cols(data[, -"Delay"], remove_selected_columns = TRUE), data[, "Delay"])
-    }
+    # if(learner_name %in% c("classif.svm", "classif.xgboost")){
+    #   data_task = cbind(dummy_cols(data[, -"Delay"], remove_selected_columns = TRUE), data[, "Delay"])
+    # }
     # task
     task <- TaskClassif$new(
       id = "flight", backend = data_task,
@@ -70,9 +71,9 @@ train_helper = function(data){
       )
     }
     if(learner_name == "classif.xgboost"){
-      params = list(
-        ParamInt$new("max_depth", lower = 1, upper = 10),
-        ParamDbl$new("eta", lower = 0.1, upper = 0.5)
+      params =  list(
+        ParamInt$new("classif.xgboost.max_depth", lower = 1, upper = 10),
+        ParamDbl$new("classif.xgboost.eta", lower = 0.1, upper = 0.5)
       )
     }
     if(learner_name == "classif.kknn"){
@@ -89,7 +90,11 @@ train_helper = function(data){
    
     learner = lrn(learner_name, predict_type = "prob")
     
-    
+    if(learner_name == "classif.xgboost"){
+      fencoder = po("encode", method = "treatment", affect_columns = selector_type("factor"))
+      pipe_boost = fencoder %>>% learner
+      learner = GraphLearner$new(pipe_boost)
+    }
     # graph = po("imputelearner")  %>>% lrn(learner_name, predict_type = "prob") # impute missing values
     # learner = GraphLearner$new(graph)
       #!
@@ -111,6 +116,7 @@ train_helper = function(data){
       )
       at$train(task)
       # save results in data.frame
+      
       current_result = data.frame(learner_name, at$tuning_result$classif.acc, I(at$tuning_result$learner_param_vals))
       names(current_result) = names(performance)
       performance = rbind(performance, current_result)
@@ -132,12 +138,19 @@ train_helper = function(data){
   best_learner = performance[measure==max(performance$measure)]
   best_learner = best_learner[1, ]
   
+  
 
   learner = lrn(best_learner$learner, predict_type = "prob")
-  if(!(best_learner$learner %in% c("classif.log_reg", "classif.naive_bayes"))){
+  if(!(best_learner$learner %in% c("classif.log_reg", "classif.naive_bayes", "classif.xgboost"))){
     learner$param_set$values = best_learner$parameters[[1]]
   }
   
+  if(learner_name == "classif.xgboost"){
+    fencoder = po("encode", method = "treatment", affect_columns = selector_type("factor"))
+    pipe_boost = fencoder %>>% learner
+    learner = GraphLearner$new(pipe_boost)
+    learner$param_set$values = best_learner$parameters[[1]]
+  }
   # imp_missind = po("missind")
   # imp_num = po("imputehist", param_vals = list(affect_columns = selector_type("numeric")))
   # imp_missind = po("missind", param_vals = list(affect_columns = NULL, which = "all"))
