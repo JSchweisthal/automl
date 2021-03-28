@@ -116,8 +116,8 @@ train_helper = function(data){
       performance = rbind(performance, current_result)
     }
     else{
-      learner$train(task)
-      current_result = data.frame(learner_name, learner$predict(task)$score(measure), list(params=""))
+      result = resample(task = task, learner = learner, resampling = resampling)
+      current_result = data.frame(learner_name,  result$aggregate(measure), list(params=""))
       names(current_result) = names(performance)
       performance = rbind(performance, current_result)
     }
@@ -148,10 +148,10 @@ train_helper = function(data){
   #   gunion(list(imp_missind, imp_num %>>% imp_fct)) %>>%
   #   po("featureunion")
   
-  impgraph = list(
-    po("imputesample"),
-    po("missind")
-  ) %>>% po("featureunion")
+  # impgraph = list(
+  #   po("imputesample"),
+  #   po("missind")
+  # ) %>>% po("featureunion")
   
   # learner = GraphLearner$new(graph %>>% po(learner))
   learner = GraphLearner$new( #impgraph %>>% 
