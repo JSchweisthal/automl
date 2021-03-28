@@ -1,5 +1,5 @@
 # Abstract base class
-source('code/module_functions_BO.R')
+source('code/module_functions.R')
 load("./results/default_model.RData")
  
 library(R6)
