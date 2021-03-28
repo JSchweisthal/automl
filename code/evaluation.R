@@ -5,6 +5,7 @@ source("./code/Automl.R")
 source("./code/make_mlr3_learner.R")
 library(data.table)
 library(ggplot2)
+library(xtable)
 set.seed(1234)
 
 dataset_files = list.files("datasets", "*.csv", full.names = TRUE)
@@ -54,13 +55,16 @@ df_eval$learner = sapply(1:nrow(df_eval), function(x) strsplit(df_eval$learner, 
 c(mean(df_eval$acc_automl), sqrt(var(df_eval$acc_automl)))
 # how often are learners the best learners?
 table(df_eval$learner)
+# Latex table
+xtable(df_eval)
 # visualizing the accuracy of untuned ranger and automl learner
 ggplot(df_eval, aes(x=acc_untunedrf, y=acc_automl, col=learner)) + theme_bw() +
   geom_point() +
   geom_abline(slope=1, intercept=0) +
   labs(title = "Generalized estimation accuracy") +
   xlab("Untuned random forest") +
-  ylab("Learner of AutoML system")
+  ylab("Learner of AutoML system") + 
+  labs(col = "selected learner")
 
 # saving the evaluations
 save(file = "./results/cv_measure.RData", cv_measure)
