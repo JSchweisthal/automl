@@ -23,5 +23,6 @@ task <- TaskClassif$new(
 learner = make_mlr3_learner(AutomlCustom)
 learner$train(task) # train it
 default_model = learner 
+
 # save it as the default model
 save(default_model, file = "./results/default_model.RData")

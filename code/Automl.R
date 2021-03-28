@@ -1,7 +1,11 @@
 # Abstract base class
+# predict in Automl class without training with the default_model,
+# which was trained on all 20 datasets:
+# learner$automl$model$automl$model$predict(task)
+# else: error will be returned to remind, that it should be trained
 source('code/module_functions.R')
 load("./results/default_model.RData")
- 
+
 library(R6)
 Automl = R6Class(
   "Automl",
